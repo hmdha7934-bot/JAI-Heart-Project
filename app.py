@@ -2,54 +2,123 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
-from sklearn.ensemble import RandomForestClassifier
 import time
 
-# إعدادات الصفحة
-st.set_page_config(page_title="JAI - رعاية القلب", page_icon="❤️", layout="wide")
+# --- 1. إعدادات وتنسيق الصفحة ---
+st.set_page_config(page_title="JAI - رعاية القلب الذكية", page_icon="❤️", layout="wide")
 
-# إدارة الحالة
+st.markdown("""
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap');
+    html, body, [class*="st-"] { direction: rtl; text-align: right; font-family: 'Cairo', sans-serif; }
+    .stButton > button { border-radius: 12px; font-weight: bold; width: 100%; height: 3em; }
+    .chat-box { background-color: #f1f3f4; padding: 15px; border-radius: 15px; border: 1px solid #ddd; }
+    </style>
+    """, unsafe_allow_html=True)
+
+# --- 2. إدارة الحالة (Session State) ---
 if 'page' not in st.session_state: st.session_state.page = "home"
+if 'user_name' not in st.session_state: st.session_state.user_name = ""
 if 'data_history' not in st.session_state:
-    st.session_state.data_history = pd.DataFrame(columns=['الوقت', 'النبض', 'الضغط', 'الأكسجين', 'الحالة'])
+    st.session_state.data_history = pd.DataFrame(columns=['الوقت', 'النبض', 'الضغط', 'الأكسجين', 'الحالة', 'اللون'])
 
-# نموذج التنبؤ
-def predict_risk(hr, bp, ox):
-    if hr > 100 or bp > 140 or ox < 90: return "خطر"
-    return "طبيعي"
+# --- 3. وظائف المساعد الذكي JAI ---
+def predict_health(hr, bp, ox):
+    if hr > 110 or bp > 150 or ox < 90: return "خطير", "#ff4b4b"
+    elif hr > 100 or bp > 140 or ox < 94: return "متوسط", "#ffaa00"
+    return "طبيعي", "#28a745"
 
-# --- التنقل بين الصفحات ---
+def jai_robot(query):
+    query = query.lower()
+    if "ما هو مشروعك" in query or "مشروع" in query:
+        return "مشروعي هو نظام JAI، وهو تطبيق يستخدم إنترنت الأشياء (IoT) لمراقبة مرضى القلب والتنبؤ بالمخاطر قبل وقوعها."
+    elif "نبض" in query or "بيانات" in query:
+        return "أقوم بقياس النبض، الضغط، والأكسجين. إذا رأيت اللون الأحمر، فهذا يعني ضرورة الاتصال بالطبيب فوراً!"
+    elif "نصيحة" in query:
+        return "أنصحك بشرب الماء بانتظام، وتجنب القلق، وممارسة رياضة المشي الخفيف بعد استشارة الطبيب."
+    else:
+        return "أنا JAI مساعدك الذكي، يمكنني إخبارك عن حالتك الصحية أو شرح كيفية عمل هذا النظام."
+
+# --- 4. منطق الصفحات ---
+
+# الصفحة الأولى: الترحيب والتسجيل
 if st.session_state.page == "home":
-    st.title("دور إنترنت الأشياء في رعاية مرضى القلب ❤️")
-    st.markdown("### مرحباً بكِ في نظام JAI الذكي - المبرمجة جوري")
-    col1, col2, col3 = st.columns(3)
-    if col1.button("🚀 بدء المحاكاة"):
-        st.session_state.page = "simulation"
-        st.rerun()
-    if col2.button("📊 بيانات المريض"):
-        st.session_state.page = "data"
-        st.rerun()
-    if col3.button("⚠️ التنبيهات"):
-        st.session_state.page = "alerts"
+    st.markdown("<h1 style='text-align: center; color: #cc0000;'>❤️ مرحباً بك في منصة JAI</h1>", unsafe_allow_html=True)
+    st.markdown("<h3 style='text-align: center;'>نظام إنترنت الأشياء المتقدم لرعاية مرضى القلب</h3>", unsafe_allow_html=True)
+    st.image("https://img.freepik.com/free-vector/iot-concept-illustration_114360-1234.jpg", width=400)
+    
+    with st.container():
+        st.write("---")
+        name_input = st.text_input("فضلاً، أدخلي اسمكِ الثلاثي للبدء:")
+        if st.button("دخول للمنصة 🚀"):
+            if name_input:
+                st.session_state.user_name = name_input
+                st.session_state.page = "dashboard"
+                st.rerun()
+            else:
+                st.error("عذراً، يجب كتابة الاسم أولاً للتمكن من متابعة حالتك الصحية.")
+
+# الصفحة الثانية: لوحة التحكم والبيانات
+elif st.session_state.page == "dashboard":
+    st.title(f"🏥 لوحة التحكم - المريض: {st.session_state.user_name}")
+    
+    col_nav1, col_nav2, col_nav3 = st.columns(3)
+    with col_nav1:
+        if st.button("📟 بدء المحاكاة المباشرة"): st.session_state.sub_page = "sim"
+    with col_nav2:
+        if st.button("📊 عرض بياناتي"): st.session_state.sub_page = "data"
+    with col_nav3:
+        if st.button("⚠️ التنبيهات"): st.session_state.sub_page = "alerts"
+
+    # المحاكاة (توليد بيانات عشوائية)
+    if 'sub_page' not in st.session_state or st.session_state.sub_page == "sim":
+        hr, bp, ox = np.random.randint(60, 120), np.random.randint(100, 160), np.random.randint(88, 100)
+        status, color = predict_health(hr, bp, ox)
+        
+        # حفظ البيانات
+        new_row = pd.DataFrame({'الوقت': [time.strftime("%H:%M:%S")], 'النبض': [hr], 'الضغط': [bp], 'الأكسجين': [ox], 'الحالة': [status], 'اللون': [color]})
+        st.session_state.data_history = pd.concat([st.session_state.data_history, new_row], ignore_index=True).tail(10)
+        
+        # العرض البصري
+        c1, c2, c3 = st.columns(3)
+        c1.metric("❤️ نبض القلب", f"{hr} BPM")
+        c2.metric("🩸 ضغط الدم", f"{bp} mmHg")
+        c3.metric("☁️ الأكسجين", f"{ox} %")
+        
+        st.markdown(f"<div style='background-color:{color}; padding:20px; border-radius:15px; text-align:center; color:white;'><h3>التنبؤ الذكي: الحالة {status}</h3></div>", unsafe_allow_html=True)
+        
+        fig = px.line(st.session_state.data_history, x='الوقت', y=['النبض', 'الضغط'], title="الرسوم البيانية للمؤشرات")
+        st.plotly_chart(fig, use_container_width=True)
+        
+        time.sleep(4)
         st.rerun()
 
-elif st.session_state.page in ["simulation", "data"]:
-    st.header("📊 مراقبة المؤشرات الحيوية")
-    hr, bp, ox = np.random.randint(60,115), np.random.randint(110,155), np.random.randint(88,100)
-    status = predict_risk(hr, bp, ox)
-    new_entry = pd.DataFrame({'الوقت': [time.strftime("%H:%M:%S")], 'النبض': [hr], 'الضغط': [bp], 'الأكسجين': [ox], 'الحالة': [status]})
-    st.session_state.data_history = pd.concat([st.session_state.data_history, new_entry], ignore_index=True).tail(10)
-    st.table(st.session_state.data_history)
-    if status == "خطر": st.error("🚨 تنبيه ذكي من JAI: تم رصد حالة غير مستقرة!")
-    if st.button("العودة للرئيسية"):
-        st.session_state.page = "home"
-        st.rerun()
-    time.sleep(5)
-    st.rerun()
+    # صفحة البيانات (الجدول)
+    elif st.session_state.sub_page == "data":
+        st.subheader("📋 سجل القراءات التاريخي")
+        st.table(st.session_state.data_history[['الوقت', 'النبض', 'الضغط', 'الأكسجين', 'الحالة']])
 
-elif st.session_state.page == "alerts":
-    st.header("⚠️ سجل التنبيهات الذكية")
-    st.write(st.session_state.data_history[st.session_state.data_history['الحالة'] == "خطر"])
-    if st.button("العودة"):
+    # صفحة التنبيهات
+    elif st.session_state.sub_page == "alerts":
+        st.subheader("⚠️ سجل التنبيهات العاجلة")
+        alerts = st.session_state.data_history[st.session_state.data_history['الحالة'] != "طبيعي"]
+        if not alerts.empty:
+            for i, row in alerts.iterrows():
+                st.markdown(f"<p style='color:{row['اللون']}; font-weight:bold;'>• [{row['الوقت']}] تنبيه {row['الحالة']}: النبض وصل إلى {row['النبض']}</p>", unsafe_allow_html=True)
+        else:
+            st.success("لا توجد تنبيهات خطيرة حتى الآن.")
+
+    st.write("---")
+    # الروبوت التفاعلي (Chatbot)
+    st.subheader("🤖 اسألي JAI (الروبوت التفاعلي)")
+    user_query = st.text_input("اكتبي سؤالك عن حالتك أو عن المشروع هنا:")
+    if user_query:
+        response = jai_robot(user_query)
+        st.markdown(f"<div class='chat-box'><b>JAI:</b> {response}</div>", unsafe_allow_html=True)
+
+    if st.button("🚪 تسجيل الخروج"):
         st.session_state.page = "home"
+        st.session_state.user_name = ""
         st.rerun()
+
+st.markdown("<br><center><b>صُنع بحب بواسطة المبرمجة جوري 👑</b></center>", unsafe_allow_html=True)
